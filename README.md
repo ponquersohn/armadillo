@@ -4,7 +4,8 @@ Version 0.0000001 - one evening of coding:
 Included: loadable module with userspace interface to set a selected PID unkillable by SIGKILL and SIGTERM!!!!. Still one can run sigsegv and others but its easy to catch by user appliaction.
 
 Example usage:
-Aroot@kali:~/ls2020/homebrew_tools/armadillo#
+```
+root@kali:~/ls2020/homebrew_tools/armadillo#
 root@kali:~/ls2020/homebrew_tools/armadillo# ls
 armadillo.c  interface.c  ioctl.h  Makefile  readme.md
 root@kali:~/ls2020/homebrew_tools/armadillo# make
@@ -78,7 +79,7 @@ root@kali:~/ls2020/homebrew_tools/armadillo# kill 25883
 root@kali:~/ls2020/homebrew_tools/armadillo#
 [1]+  Terminated              sleep 3600
 root@kali:~/ls2020/homebrew_tools/armadillo#
-
+```
 
 More will come here:
 - To do: - control root actions:
