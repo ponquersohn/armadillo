@@ -1,0 +1,1 @@
+cmd_/root/ls2020/homebrew_tools/armadillo/module/armadillo.mod := { echo  /root/ls2020/homebrew_tools/armadillo/module/module.o /root/ls2020/homebrew_tools/armadillo/module/hooker.o /root/ls2020/homebrew_tools/armadillo/module/kernfunc.o /root/ls2020/homebrew_tools/armadillo/module/command_ioctl.o; echo; } > /root/ls2020/homebrew_tools/armadillo/module/armadillo.mod
