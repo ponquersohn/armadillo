@@ -17,10 +17,7 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/kprobes.h>
-
-MODULE_DESCRIPTION("Example module hooking clone() and execve() via ftrace");
-MODULE_AUTHOR("ilammy <a.lozovsky@gmail.com>");
-MODULE_LICENSE("GPL");
+#include "module.h"
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)
 static unsigned long lookup_name(const char *name)
@@ -93,7 +90,7 @@ static int fh_resolve_hook_address(struct ftrace_hook *hook)
 	hook->address = lookup_name(hook->name);
 
 	if (!hook->address) {
-		pr_debug("unresolved symbol: %s\n", hook->name);
+		APRINTK(KERN_DEBUG "unresolved symbol: %s\n", hook->name);
 		return -ENOENT;
 	}
 
@@ -147,13 +144,13 @@ int fh_install_hook(struct ftrace_hook *hook)
 
 	err = ftrace_set_filter_ip(&hook->ops, hook->address, 0, 0);
 	if (err) {
-		pr_debug("ftrace_set_filter_ip() failed: %d\n", err);
+		APRINTK(KERN_DEBUG "ftrace_set_filter_ip() failed: %d\n", err);
 		return err;
 	}
 
 	err = register_ftrace_function(&hook->ops);
 	if (err) {
-		pr_debug("register_ftrace_function() failed: %d\n", err);
+		APRINTK(KERN_DEBUG "register_ftrace_function() failed: %d\n", err);
 		ftrace_set_filter_ip(&hook->ops, hook->address, 1, 0);
 		return err;
 	}
@@ -171,12 +168,12 @@ void fh_remove_hook(struct ftrace_hook *hook)
 
 	err = unregister_ftrace_function(&hook->ops);
 	if (err) {
-		pr_debug("unregister_ftrace_function() failed: %d\n", err);
+		APRINTK(KERN_DEBUG "unregister_ftrace_function() failed: %d\n", err);
 	}
 
 	err = ftrace_set_filter_ip(&hook->ops, hook->address, 1, 0);
 	if (err) {
-		pr_debug("ftrace_set_filter_ip() failed: %d\n", err);
+		APRINTK(KERN_DEBUG "ftrace_set_filter_ip() failed: %d\n", err);
 	}
 }
 
@@ -239,104 +236,142 @@ void fh_remove_hooks(struct ftrace_hook *hooks, size_t count)
 #pragma GCC optimize("-fno-optimize-sibling-calls")
 #endif
 
+//#ifdef PTREGS_SYSCALL_STUBS
+//static asmlinkage long (*real_sys_clone)(struct pt_regs *regs);
+//
+//static asmlinkage long fh_sys_clone(struct pt_regs *regs)
+//{
+//	long ret;
+//
+//	APRINTK(KERN_INFO "clone() before\n");
+//
+//	ret = real_sys_clone(regs);
+//
+//	APRINTK(KERN_INFO "clone() after: %ld\n", ret);
+//
+//	return ret;
+//}
+//#else
+//static asmlinkage long (*real_sys_clone)(unsigned long clone_flags,
+//		unsigned long newsp, int __user *parent_tidptr,
+//		int __user *child_tidptr, unsigned long tls);
+//
+//static asmlinkage long fh_sys_clone(unsigned long clone_flags,
+//		unsigned long newsp, int __user *parent_tidptr,
+//		int __user *child_tidptr, unsigned long tls)
+//{
+//	long ret;
+//
+//	APRINTK(KERN_INFO "clone() before\n");
+//
+//	ret = real_sys_clone(clone_flags, newsp, parent_tidptr,
+//		child_tidptr, tls);
+//
+//	APRINTK(KERN_INFO "clone() after: %ld\n", ret);
+//
+//	return ret;
+//}
+//#endif
+//
+//static char *duplicate_filename(const char __user *filename)
+//{
+//	char *kernel_filename;
+//
+//	kernel_filename = kmalloc(4096, GFP_KERNEL);
+//	if (!kernel_filename)
+//		return NULL;
+//
+//	if (strncpy_from_user(kernel_filename, filename, 4096) < 0) {
+//		kfree(kernel_filename);
+//		return NULL;
+//	}
+//
+//	return kernel_filename;
+//}
+//
+//#ifdef PTREGS_SYSCALL_STUBS
+//static asmlinkage long (*real_sys_execve)(struct pt_regs *regs);
+//
+//static asmlinkage long fh_sys_execve(struct pt_regs *regs)
+//{
+//	long ret;
+//	char *kernel_filename;
+//
+//	kernel_filename = duplicate_filename((void*) regs->di);
+//
+//	APRINTK(KERN_INFO "execve() before: %s\n", kernel_filename);
+//
+//	kfree(kernel_filename);
+//
+//	ret = real_sys_execve(regs);
+//
+//	APRINTK(KERN_INFO "execve() after: %ld\n", ret);
+//
+//	return ret;
+//}
+//#else
+//static asmlinkage long (*real_sys_execve)(const char __user *filename,
+//		const char __user *const __user *argv,
+//		const char __user *const __user *envp);
+//
+//static asmlinkage long fh_sys_execve(const char __user *filename,
+//		const char __user *const __user *argv,
+//		const char __user *const __user *envp)
+//{
+//	long ret;
+//	char *kernel_filename;
+//
+//	kernel_filename = duplicate_filename(filename);
+//
+//	APRINTK(KERN_INFO "execve() before: %s\n", kernel_filename);
+//
+//	kfree(kernel_filename);
+//
+//	ret = real_sys_execve(filename, argv, envp);
+//
+//	APRINTK(KERN_INFO "execve() after: %ld\n", ret);
+//
+//	return ret;
+//}
+//#endif
+
 #ifdef PTREGS_SYSCALL_STUBS
-static asmlinkage long (*real_sys_clone)(struct pt_regs *regs);
-
-static asmlinkage long fh_sys_clone(struct pt_regs *regs)
-{
-	long ret;
-
-	pr_info("clone() before\n");
-
-	ret = real_sys_clone(regs);
-
-	pr_info("clone() after: %ld\n", ret);
-
-	return ret;
-}
+static asmlinkage long (*real_sys_ioctl)(struct pt_regs *regs);
+static asmlinkage long fh_sys_ioctl(struct pt_regs *regs)
 #else
-static asmlinkage long (*real_sys_clone)(unsigned long clone_flags,
-		unsigned long newsp, int __user *parent_tidptr,
-		int __user *child_tidptr, unsigned long tls);
-
-static asmlinkage long fh_sys_clone(unsigned long clone_flags,
-		unsigned long newsp, int __user *parent_tidptr,
-		int __user *child_tidptr, unsigned long tls)
-{
-	long ret;
-
-	pr_info("clone() before\n");
-
-	ret = real_sys_clone(clone_flags, newsp, parent_tidptr,
-		child_tidptr, tls);
-
-	pr_info("clone() after: %ld\n", ret);
-
-	return ret;
-}
+//@ToDo: check if char * is actually right, becuase it should be * void
+static asmlinkage long (*real_sys_ioctl)(int fd, unsigned long request, char *argp);
+static asmlinkage long fh_sys_ioctl((int fd, unsigned long request, char *argp)
 #endif
-
-static char *duplicate_filename(const char __user *filename)
-{
-	char *kernel_filename;
-
-	kernel_filename = kmalloc(4096, GFP_KERNEL);
-	if (!kernel_filename)
-		return NULL;
-
-	if (strncpy_from_user(kernel_filename, filename, 4096) < 0) {
-		kfree(kernel_filename);
-		return NULL;
-	}
-
-	return kernel_filename;
-}
-
-#ifdef PTREGS_SYSCALL_STUBS
-static asmlinkage long (*real_sys_execve)(struct pt_regs *regs);
-
-static asmlinkage long fh_sys_execve(struct pt_regs *regs)
 {
 	long ret;
-	char *kernel_filename;
+	#ifdef PTREGS_SYSCALL_STUBS
+	int fd;
+	unsigned long request;
+	char *argp;
 
-	kernel_filename = duplicate_filename((void*) regs->di);
+	// according to: https://stackoverflow.com/questions/2535989/what-are-the-calling-conventions-for-unix-linux-system-calls-and-user-space-f
+	fd = regs->di;
+	request = regs->si;
+	argp = (char *)regs->dx;
+	#endif
 
-	pr_info("execve() before: %s\n", kernel_filename);
 
-	kfree(kernel_filename);
 
-	ret = real_sys_execve(regs);
+	APRINTK(KERN_INFO "armadillo: hooked ioctl() fd: %d, req: %ul\n", fd, request);
 
-	pr_info("execve() after: %ld\n", ret);
+	#ifdef PTREGS_SYSCALL_STUBS
+	ret = real_sys_ioctl(regs);
+	#else
+	ret = real_sys_ioctl(fd, request, argp);
+	#endif
+	APRINTK(KERN_INFO "armadillo: original ioctl() ret: %ld\n", ret);
 
 	return ret;
 }
-#else
-static asmlinkage long (*real_sys_execve)(const char __user *filename,
-		const char __user *const __user *argv,
-		const char __user *const __user *envp);
 
-static asmlinkage long fh_sys_execve(const char __user *filename,
-		const char __user *const __user *argv,
-		const char __user *const __user *envp)
-{
-	long ret;
-	char *kernel_filename;
 
-	kernel_filename = duplicate_filename(filename);
 
-	pr_info("execve() before: %s\n", kernel_filename);
-
-	kfree(kernel_filename);
-
-	ret = real_sys_execve(filename, argv, envp);
-
-	pr_info("execve() after: %ld\n", ret);
-
-	return ret;
-}
-#endif
 
 /*
  * x86_64 kernels have a special naming convention for syscall entry points in newer kernels.
@@ -356,8 +391,9 @@ static asmlinkage long fh_sys_execve(const char __user *filename,
 	}
 
 static struct ftrace_hook armadillo_hooks[] = {
-	HOOK("sys_clone",  fh_sys_clone,  &real_sys_clone),
-	HOOK("sys_execve", fh_sys_execve, &real_sys_execve),
+	//HOOK("sys_clone",  fh_sys_clone,  &real_sys_clone),
+	//HOOK("sys_execve", fh_sys_execve, &real_sys_execve),
+	HOOK("sys_ioctl", fh_sys_ioctl, &real_sys_ioctl),
 };
 
 int fh_install_hooks_all(void) {

@@ -5,8 +5,8 @@ ifeq ($(KERNELRELEASE),)
 
 MODULE_SOURCES := \
 	module.c \
-	hooker.c \
-	kernfunc.c \
+	ftrace_hooker.c \
+	obfuscate.c \
 	command_ioctl.c
 
 UNAME := $(shell uname -r)
@@ -29,6 +29,7 @@ obj-m := $(MODULE_NAME).o
 $(MODULE_NAME)-y := \
 	module.o \
 	ftrace_hooker.o \
+	obfuscate.o \
 	command_ioctl.o 
 
 endif

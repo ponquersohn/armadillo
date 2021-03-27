@@ -9,6 +9,9 @@
 #include "../module/command_ioctl.h"
 
 #define COMMAND_TOGGLE_UNKILLABLE "toggle_unkillable"
+#define COMMAND_LOCK "lock"
+#define COMMAND_UNLOCK "unlock"
+#define COMMAND_TOGGLE_DEBUG "toggle_debug"
 
 char convert_on_off(char * word) {
     int mytrue = strncmp(word, "on", strlen("on"));
@@ -69,8 +72,52 @@ int main(int argc, char *argv[]) {
             exit(-1);
         }
         printf ("pid: %d, new_status: %d\n", pid, status);
-        return 0;
+        return ret_val;
         
+    } else if (strncmp(command, COMMAND_LOCK, strlen(COMMAND_LOCK)) == 0) {
+        if (argc != 3) {
+            printf("usage: lock <password>\n");
+            close(armadillo_device_file);
+            return -1;
+        }
+
+        struct armadillo_ioctl_lock armadillo_ioctl_lock_params;
+        strncpy(armadillo_ioctl_lock_params.secret, argv[2], ARMADILLO_MAX_PASSWORD_LENGTH);
+
+        int ret_val;
+
+        ret_val = ioctl(armadillo_device_file, ARMADILLO_IOCTL_LOCK, &armadillo_ioctl_lock_params);
+        if (ret_val !=0) {
+            printf("Unable to lock error: %d\n", ret_val);
+        }
+        return ret_val;
+    } else if (strncmp(command, COMMAND_UNLOCK, strlen(COMMAND_UNLOCK)) == 0) {
+    
+        if (argc != 3) {
+            printf("usage: unlock <password>\n");
+            close(armadillo_device_file);
+            return -1;
+        }
+
+        struct armadillo_ioctl_lock armadillo_ioctl_unlock_params;
+        strncpy(armadillo_ioctl_unlock_params.secret, argv[2], ARMADILLO_MAX_PASSWORD_LENGTH);
+
+        int ret_val;
+
+        ret_val = ioctl(armadillo_device_file, ARMADILLO_IOCTL_UNLOCK, &armadillo_ioctl_unlock_params);
+        if (ret_val !=0) {
+            printf("Unable to unlock error: %d\n", ret_val);
+        }
+        return ret_val;
+    } else if (strncmp(command, COMMAND_TOGGLE_DEBUG, strlen(COMMAND_TOGGLE_DEBUG)) == 0) {
+    
+        int ret_val;
+
+        ret_val = ioctl(armadillo_device_file, ARMADILLO_IOCTL_TOGGLE_DEBUG);
+        if (ret_val !=0) {
+            printf("Unable to toggle debug error: %d\n", ret_val);
+        } 
+        return ret_val;
     }
     
     printf ("unknown command: %s\n", command); 

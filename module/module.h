@@ -15,6 +15,23 @@ MODULE_AUTHOR("Lech Lachowicz");
 #define MODULE_NAME "armadillo"
 #define PKPRE "[" MODULE_NAME "] "
 
+extern struct mutex armadillo_status_mutex;
+
+#define ARMADILLO_MAX_PASS_LENGTH 40
+typedef struct  {
+    bool locked;
+    bool debug; 
+    bool obfuscated_password[ARMADILLO_MAX_PASS_LENGTH];
+} armadillo_status_type;
+
+extern armadillo_status_type armadillo_status;
+
+int armadillo_printk(const char *fmt, ...);
+bool armadillo_is_debug(void);
+#define APRINTK armadillo_printk
+
+int toggle_pid_unkillable(unsigned int pid,  unsigned char new_status);
+
 // this spinlock will protect whole configuration
 //static DEFINE_SPINLOCK(module_lock);
 
