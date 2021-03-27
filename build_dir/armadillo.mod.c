@@ -1,9 +1,6 @@
-#include <linux/build-salt.h>
 #include <linux/module.h>
 #include <linux/vermagic.h>
 #include <linux/compiler.h>
-
-BUILD_SALT;
 
 MODULE_INFO(vermagic, VERMAGIC_STRING);
 MODULE_INFO(name, KBUILD_MODNAME);
@@ -18,34 +15,31 @@ __attribute__((section(".gnu.linkonce.this_module"))) = {
 	.arch = MODULE_ARCH_INIT,
 };
 
-#ifdef CONFIG_RETPOLINE
+#ifdef RETPOLINE
 MODULE_INFO(retpoline, "Y");
 #endif
 
 static const struct modversion_info ____versions[]
 __used
 __attribute__((section("__versions"))) = {
-	{ 0x25a444ff, "module_layout" },
-	{ 0x78c2e801, "cdev_del" },
-	{ 0xb551d60c, "cdev_init" },
-	{ 0x754d539c, "strlen" },
-	{ 0x5e368f62, "kallsyms_on_each_symbol" },
-	{ 0xb0bb794e, "device_destroy" },
+	{ 0xf8cdd757, "module_layout" },
+	{ 0x361c68dd, "cdev_del" },
+	{ 0x71a3afd4, "cdev_init" },
+	{ 0x9b7fe4d4, "__dynamic_pr_debug" },
+	{ 0x64c97ae, "device_destroy" },
 	{ 0x6091b333, "unregister_chrdev_region" },
-	{ 0xe2d5255a, "strcmp" },
-	{ 0xc5850110, "printk" },
-	{ 0x9166fada, "strncpy" },
-	{ 0x593c1bac, "__x86_indirect_thunk_rbx" },
-	{ 0xd351cf4d, "device_create" },
-	{ 0x1c1e6a2, "pid_task" },
-	{ 0x6042c10a, "cdev_add" },
-	{ 0xdecd0b29, "__stack_chk_fail" },
-	{ 0x2ea2c95c, "__x86_indirect_thunk_rax" },
+	{ 0x27e1a049, "printk" },
+	{ 0xb33ee6e2, "device_create" },
+	{ 0x801de1f9, "unregister_ftrace_function" },
+	{ 0x6e14fd0d, "pid_task" },
+	{ 0xe007de41, "kallsyms_lookup_name" },
+	{ 0x58d9cd11, "cdev_add" },
+	{ 0xafeda40e, "ftrace_set_filter_ip" },
 	{ 0xbdfb6dbb, "__fentry__" },
-	{ 0x8b9200fd, "lookup_address" },
-	{ 0xbec8fc4e, "find_get_pid" },
-	{ 0x10688a0c, "class_destroy" },
-	{ 0x5b91a631, "__class_create" },
+	{ 0xb981a763, "find_get_pid" },
+	{ 0x91a5c02c, "register_ftrace_function" },
+	{ 0x21e01071, "class_destroy" },
+	{ 0xe42dbab4, "__class_create" },
 	{ 0xe3ec2f2b, "alloc_chrdev_region" },
 };
 
@@ -54,3 +48,6 @@ __used
 __attribute__((section(".modinfo"))) =
 "depends=";
 
+
+MODULE_INFO(srcversion, "0DFC752EFAC9F172274134B");
+MODULE_INFO(rhelversion, "8.2");

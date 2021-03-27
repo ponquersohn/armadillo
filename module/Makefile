@@ -28,8 +28,7 @@ else
 obj-m := $(MODULE_NAME).o
 $(MODULE_NAME)-y := \
 	module.o \
-	hooker.o \
-	kernfunc.o \
+	ftrace_hooker.o \
 	command_ioctl.o 
 
 endif

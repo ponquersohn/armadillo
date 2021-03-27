@@ -12,7 +12,7 @@
 
 #include "module.h" 
 #include "command_ioctl.h"
-#include "ftrace_hooker.h"
+#include "hooker.h"
 #include "kernfunc.h"
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
@@ -47,14 +47,13 @@ static struct file_operations fops = {
 int init_module(void) {
     int ret;
     struct device *dev_ret;
-    int err;
 
     printk(KERN_INFO "armadillo: Init called\n");
-
-	
-	err = fh_install_hooks_all();
-	if (err)
-		return err;
+    //ret = kernfunc_init();
+    //if (IN_ERR(ret)) {
+    ///    printk(KERN_INFO "armadillo: Unable to initialize kernfunc!\n");
+    //    return ret;
+    //}
     
     if ((ret = alloc_chrdev_region(&armadillo_dev, 0, 1, "Armadillo")) < 0) {
         return ret;
@@ -88,7 +87,7 @@ int init_module(void) {
 }
 
 void cleanup_module(void) {
-    fh_remove_hooks_all();
+//    undo_hijack_syscalls();
     cdev_del(&armadillo_cdev);
     device_destroy(armadillo_class, armadillo_dev);
     class_destroy(armadillo_class);

@@ -1,2 +1,11 @@
 interface
 armadillo.ko
+armadillo.o
+*.ko.cmd
+*.o.cmd
+*.o.cmd
+
+.vscode/
+
+build_dir/
+dist/
