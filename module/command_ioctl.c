@@ -21,35 +21,7 @@
 //#include "module.h"
 
 
-int armadillo_lock(char * secret) {
-    int ret = 0;
-    mutex_lock(&armadillo_status_mutex);
-    if (!armadillo_status.locked) {
-        APRINTK(KERN_ALERT "armadillo: Locking...\n");
-        armadillo_status.locked = true;
-        ret = 0;
-    } else {
-        APRINTK(KERN_ALERT "armadillo: Unable to lock as already locked.\n");
-        ret = -1;
-    }
-    mutex_unlock(&armadillo_status_mutex);
-    return ret;
-}
 
-int armadillo_unlock(void) {
-    int ret = 0;
-    mutex_lock(&armadillo_status_mutex);
-    if (armadillo_status.locked) {
-        armadillo_status.locked = false;
-        APRINTK(KERN_ALERT "armadillo: Unlocking...\n");
-        ret = 0;
-    } else {
-        APRINTK(KERN_ALERT "armadillo: Unable to unlock as already unlocked.\n");
-        ret = -1;
-    }
-    mutex_unlock(&armadillo_status_mutex);
-    return ret;
-}
 
 
 int toggle_pid_unkillable(unsigned int pid,  unsigned char new_status) {
@@ -110,7 +82,7 @@ long armadillo_unlocked_ioctl(struct file *filp, unsigned int ioctl_num, unsigne
             
             APRINTK(KERN_DEBUG "armadillo: armadillo_ioctl_unlock called.");
             
-            return armadillo_unlock();
+            return armadillo_unlock(armadillo_ioctl_unlock_params->secret);
         }        
         //case ARMADILLO_IOCTL_DISARM:
         //    return ARMADILLO_IOCTL_SUCCESS;

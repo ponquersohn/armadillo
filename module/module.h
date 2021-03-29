@@ -16,7 +16,7 @@ MODULE_AUTHOR("Lech Lachowicz");
 #define PKPRE "[" MODULE_NAME "] "
 
 
-#define ARMADILLO_MAX_PASS_LENGTH 40
+#define ARMADILLO_MAX_PASS_LENGTH 41
 typedef struct  {
     bool locked;
     bool debug; 
@@ -25,15 +25,23 @@ typedef struct  {
 
 extern armadillo_status_type armadillo_status;
 extern struct mutex armadillo_status_mutex;
+
 #define ARMADILLO_LOCK_STATUS_MUTEX mutex_lock(&armadillo_status_mutex)
 #define ARMADILLO_UNLOCK_STATUS_MUTEX mutex_unlock(&armadillo_status_mutex)
 
 
 int armadillo_printk(const char *fmt, ...);
-bool armadillo_is_debug(void);
+int armadillo_printk_nolock(const char *fmt, ...);
 #define APRINTK armadillo_printk
+#define APRINTK_NOLOCK armadillo_printk_nolock
+
+
+bool armadillo_is_debug(void);
+bool armadillo_is_locked(void);
 
 int toggle_pid_unkillable(unsigned int pid,  unsigned char new_status);
+int armadillo_lock(char * secret);
+int armadillo_unlock(char * secret);
 
 // this spinlock will protect whole configuration
 //static DEFINE_SPINLOCK(module_lock);

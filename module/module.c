@@ -27,7 +27,6 @@
 armadillo_status_type armadillo_status;
 struct mutex armadillo_status_mutex;
 
-
 //device class
 struct class *armadillo_class;
 //device_name
@@ -65,12 +64,23 @@ int armadillo_printk(const char *fmt, ...) {
     return r;
 }
 
+bool armadillo_is_locked(void) {
+    bool ret = false;
+    ARMADILLO_LOCK_STATUS_MUTEX;    
+    ret = armadillo_status.locked;
+    ARMADILLO_UNLOCK_STATUS_MUTEX; 
+    return ret;   
+}
+
+
+
 int armadillo_set_debug(bool debug) {
     ARMADILLO_LOCK_STATUS_MUTEX;    
     armadillo_status.debug = debug;
     ARMADILLO_UNLOCK_STATUS_MUTEX; 
     return 0;   
 }
+
 
 bool armadillo_get_debug(void) {
     bool ret;
@@ -80,8 +90,39 @@ bool armadillo_get_debug(void) {
     return ret;
 }
 
-int armadillo_lock(char * password) {
-    
+int armadillo_lock(char * secret) {
+    int ret = 0;
+    ARMADILLO_LOCK_STATUS_MUTEX;
+    if (!armadillo_status.locked) {
+        APRINTK_NOLOCK(KERN_ALERT "armadillo: Locking...\n");
+        // used to prevent unloading!!
+        armadillo_status.locked = true;
+        if(!try_module_get(THIS_MODULE)) {
+            APRINTK_NOLOCK(KERN_ALERT "armadillo: Couldnt lock unloading.\n");
+        }
+        ret = 0;
+    } else {
+        APRINTK_NOLOCK(KERN_ALERT "armadillo: Unable to lock as already locked.\n");
+        ret = -1;
+    }
+    ARMADILLO_UNLOCK_STATUS_MUTEX;
+    return ret;
+}
+
+int armadillo_unlock(char * secret) {
+    int ret = 0;
+    ARMADILLO_LOCK_STATUS_MUTEX;
+    if (armadillo_status.locked) {
+        APRINTK_NOLOCK(KERN_ALERT "armadillo: Unlocking...\n");
+        armadillo_status.locked = false;
+        module_put(THIS_MODULE);        
+        ret = 0;
+    } else {
+        APRINTK_NOLOCK(KERN_ALERT "armadillo: Unable to unlock as already unlocked.\n");
+        ret = -1;
+    }
+    mutex_unlock(&armadillo_status_mutex);
+    return ret;
 }
 
 int init_module(void) {
@@ -98,6 +139,7 @@ int init_module(void) {
     APRINTK(KERN_INFO "armadillo: status structure initiated.\n");
     
     mutex_init(&armadillo_status_mutex);
+    
     APRINTK(KERN_INFO "armadillo: mutex initiated.\n");
 
     

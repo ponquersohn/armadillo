@@ -4,7 +4,7 @@ Version 0.0000001 - one evening of coding:
 Included: loadable module with userspace interface to set a selected PID unkillable by SIGKILL and SIGTERM!!!!. Still one can run sigsegv and others but its easy to catch by user appliaction.
 
 Prereq:
-yum install kernel-devel
+yum install kernel-devel-$(uname -r) -y
 
 Example usage:
 ```

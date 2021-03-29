@@ -353,8 +353,18 @@ static asmlinkage long (*real_sys_ioctl)(int fd, unsigned int request, char *arg
 static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 #endif
 {
+	
 	long ret;
+	char *tmp;
+	char *pathname;
+	struct file *file;
+	struct path *path;
+	struct files_struct *files = current->files;
+
+
 	#ifdef PTREGS_SYSCALL_STUBS
+	// this is needed to cover the differences in definition between kernels
+
 	int fd;
 	unsigned int request;
 	char *argp;
@@ -364,14 +374,6 @@ static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 	request = regs->si;
 	argp = (char *)regs->dx;
 	#endif
-
-
-
-	char *tmp;
-	char *pathname;
-	struct file *file;
-	struct path *path;
-	struct files_struct *files = current->files;
 
 	//spin_lock(&files->file_lock);
 	file = fcheck_files(files, fd);
@@ -405,7 +407,7 @@ static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 
 	free_page((unsigned long)tmp);
 
-	if (request == FS_IOC_SETFLAGS) {
+	if ((request == FS_IOC_SETFLAGS)&&  armadillo_is_locked()) {
 		APRINTK(KERN_INFO "armadillo: chattr blocked for %s\n", pathname);
 		return -EPERM;
 	}
