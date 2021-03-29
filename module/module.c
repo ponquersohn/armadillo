@@ -55,12 +55,14 @@ int armadillo_printk_nolock(const char *fmt, ...) {
 int armadillo_printk(const char *fmt, ...) {
     va_list args;
     int r;
+
     va_start(args, fmt);
-    ARMADILLO_LOCK_STATUS_MUTEX;    
+    ARMADILLO_LOCK_STATUS_MUTEX;        
     r = armadillo_printk_nolock(fmt, args);
     ARMADILLO_UNLOCK_STATUS_MUTEX;    
-    va_end(args);
 
+    va_end(args);
+    
     return r;
 }
 
@@ -92,6 +94,7 @@ bool armadillo_get_debug(void) {
 
 int armadillo_lock(char * secret) {
     int ret = 0;
+    APRINTK_NOLOCK(KERN_ALERT "armadillo: secret: %s...\n", secret);
     ARMADILLO_LOCK_STATUS_MUTEX;
     if (!armadillo_status.locked) {
         APRINTK_NOLOCK(KERN_ALERT "armadillo: Locking...\n");
@@ -124,6 +127,29 @@ int armadillo_unlock(char * secret) {
     mutex_unlock(&armadillo_status_mutex);
     return ret;
 }
+
+int armadillo_set_pid_unkillable(unsigned int pid,  unsigned char new_status) {
+    static struct task_struct * task = NULL;
+
+    if(!pid) {
+            APRINTK(KERN_ALERT "armadillo: Please specify pid of the process you want to make unkillable.\n");
+        return -1;
+    }
+    task = pid_task(find_get_pid(pid), PIDTYPE_PID);
+
+    if(task) {
+            if (new_status) {
+                task->signal->flags = task->signal->flags | SIGNAL_UNKILLABLE;
+            } else {
+                task->signal->flags = task->signal->flags & ~ SIGNAL_UNKILLABLE;
+            }
+      } else {
+            APRINTK(KERN_ALERT "armadillo: Error getting task_struct for pid %d\n", pid);
+        return -1;
+    }
+    return 0;
+}
+
 
 int init_module(void) {
     int ret;

@@ -403,7 +403,7 @@ static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 
 	/* do something here with pathname */
 
-	APRINTK(KERN_INFO "armadillo: hooked ioctl() fd: %d, req: %ul path: %s\n", fd, request, pathname);
+	//APRINTK(KERN_INFO "armadillo: hooked ioctl() fd: %d, req: %ul path: %s\n", fd, request, pathname);
 
 	free_page((unsigned long)tmp);
 
@@ -418,7 +418,7 @@ static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 	#else
 	ret = real_sys_ioctl(fd, request, argp);
 	#endif
-	APRINTK(KERN_INFO "armadillo: original ioctl() ret: %ld\n", ret);
+	//APRINTK(KERN_INFO "armadillo: original ioctl() ret: %ld\n", ret);
 
 	return ret;
 }

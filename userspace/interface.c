@@ -8,10 +8,10 @@
 
 #include "../module/command_ioctl.h"
 
-#define COMMAND_TOGGLE_UNKILLABLE "toggle_unkillable"
+#define COMMAND_SET_UNKILLABLE "set_unkillable"
 #define COMMAND_LOCK "lock"
 #define COMMAND_UNLOCK "unlock"
-#define COMMAND_TOGGLE_DEBUG "toggle_debug"
+#define COMMAND_SET_DEBUG "set_debug"
 
 char convert_on_off(char * word) {
     int mytrue = strncmp(word, "on", strlen("on"));
@@ -42,9 +42,9 @@ int main(int argc, char *argv[]) {
     
     char * command = argv[1];
     
-    if (strncmp(command, COMMAND_TOGGLE_UNKILLABLE, strlen(COMMAND_TOGGLE_UNKILLABLE)) == 0) {
+    if (strncmp(command, COMMAND_SET_UNKILLABLE, strlen(COMMAND_SET_UNKILLABLE)) == 0) {
         if (argc != 4) {
-            printf("usage: toggle_pid_unkillable <pid> <on/off>\n");
+            printf("usage: set_unkillable <pid> <on/off>\n");
             close(armadillo_device_file);
             return -1;
         }
@@ -60,11 +60,11 @@ int main(int argc, char *argv[]) {
             close(armadillo_device_file);
             return (-1);
         } 
-        struct armadillo_ioctl_toggle_pid_unkillable armadillo_ioctl_toggle_pid_unkillable_params;
-        armadillo_ioctl_toggle_pid_unkillable_params.pid = pid;
-        armadillo_ioctl_toggle_pid_unkillable_params.new_status = status;
+        armadillo_ioctl_set_pid_unkillable armadillo_ioctl_set_pid_unkillable_params;
+        armadillo_ioctl_set_pid_unkillable_params.pid = pid;
+        armadillo_ioctl_set_pid_unkillable_params.new_status = status;
         int ret_val;
-        ret_val = ioctl(armadillo_device_file, ARMADILLO_IOCTL_TOGGLE_PID_UNKILLABLE, &armadillo_ioctl_toggle_pid_unkillable_params);
+        ret_val = ioctl(armadillo_device_file, ARMADILLO_IOCTL_SET_PID_UNKILLABLE, &armadillo_ioctl_set_pid_unkillable_params);
 
         if (ret_val < 0) {
             
@@ -109,13 +109,13 @@ int main(int argc, char *argv[]) {
             printf("Unable to unlock error: %d\n", ret_val);
         }
         return ret_val;
-    } else if (strncmp(command, COMMAND_TOGGLE_DEBUG, strlen(COMMAND_TOGGLE_DEBUG)) == 0) {
+    } else if (strncmp(command, COMMAND_SET_DEBUG, strlen(COMMAND_SET_DEBUG)) == 0) {
     
         int ret_val;
 
-        ret_val = ioctl(armadillo_device_file, ARMADILLO_IOCTL_TOGGLE_DEBUG);
+        ret_val = ioctl(armadillo_device_file, ARMADILLO_IOCTL_SET_DEBUG);
         if (ret_val !=0) {
-            printf("Unable to toggle debug error: %d\n", ret_val);
+            printf("Unable to set debug error: %d\n", ret_val);
         } 
         return ret_val;
     }

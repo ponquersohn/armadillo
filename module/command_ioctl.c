@@ -9,7 +9,9 @@
 #include <linux/cdev.h>
 #include <linux/kdev_t.h>
 #include <linux/fs.h>
+#include <linux/uaccess.h>
 #include "module.h"
+
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,10,0)
 #include <linux/sched/signal.h>
@@ -18,34 +20,10 @@
 #endif
 
 #include "command_ioctl.h"
-//#include "module.h"
 
 
 
-
-
-int toggle_pid_unkillable(unsigned int pid,  unsigned char new_status) {
-    static struct task_struct * task = NULL;
-
-    if(!pid) {
-            APRINTK(KERN_ALERT "armadillo: Please specify pid of the process you want to make unkillable.\n");
-        return -1;
-      }
-      task = pid_task(find_get_pid(pid), PIDTYPE_PID);
-    if(task) {
-            if (new_status) {
-                task->signal->flags = task->signal->flags | SIGNAL_UNKILLABLE;
-            } else {
-                task->signal->flags = task->signal->flags & ~ SIGNAL_UNKILLABLE;
-            }
-      } else {
-            APRINTK(KERN_ALERT "armadillo: Error getting task_struct for pid %d\n", pid);
-        return -1;
-    }
-    return 0;
-}
-
-int toggle_debug(void) {
+int set_debug(void) {
     int ret = 0;
     mutex_lock(&armadillo_status_mutex);
     if (!armadillo_status.locked) {
@@ -87,18 +65,30 @@ long armadillo_unlocked_ioctl(struct file *filp, unsigned int ioctl_num, unsigne
         //case ARMADILLO_IOCTL_DISARM:
         //    return ARMADILLO_IOCTL_SUCCESS;
             
-        case ARMADILLO_IOCTL_TOGGLE_PID_UNKILLABLE: {
-            struct armadillo_ioctl_toggle_pid_unkillable * armadillo_ioctl_toggle_pid_unkillable_params;
-            armadillo_ioctl_toggle_pid_unkillable_params = ( struct armadillo_ioctl_toggle_pid_unkillable *) ioctl_arg;
+        case ARMADILLO_IOCTL_SET_PID_UNKILLABLE: {
+            unsigned int pid;
+            unsigned char new_status;
+            //int ret;
 
-            APRINTK(KERN_DEBUG "armadillo: armadillo_ioctl_toggle_pid_unkillable: pid: %d new_status: %d",armadillo_ioctl_toggle_pid_unkillable_params->pid, armadillo_ioctl_toggle_pid_unkillable_params->new_status);
+            armadillo_ioctl_set_pid_unkillable * armadillo_ioctl_set_pid_unkillable_params;
+            armadillo_ioctl_set_pid_unkillable a;
+            armadillo_ioctl_set_pid_unkillable_params = &a;
+            //armadillo_ioctl_set_pid_unkillable_params = (armadillo_ioctl_set_pid_unkillable *) ioctl_arg;
+            ret = copy_from_user(&a, (void __user *) ioctl_arg, sizeof(armadillo_ioctl_set_pid_unkillable));
+            //we need to check input data first!
+            pid = armadillo_ioctl_set_pid_unkillable_params->pid;
+            APRINTK(KERN_INFO "armadillo: set_pid_unkillable: pid: %u\n");
+            return 1;
+            new_status = armadillo_ioctl_set_pid_unkillable_params->new_status;
 
-            return toggle_pid_unkillable(armadillo_ioctl_toggle_pid_unkillable_params->pid, armadillo_ioctl_toggle_pid_unkillable_params->new_status);
+            APRINTK(KERN_DEBUG "armadillo: set_pid_unkillable: pid: %u, new_status: %c\n", pid, new_status);
+            ret = armadillo_set_pid_unkillable(pid, new_status);
+            return ret;
         }
         
-        case ARMADILLO_IOCTL_TOGGLE_DEBUG: {
+        case ARMADILLO_IOCTL_SET_DEBUG: {
             
-            ret = toggle_debug();
+            ret = set_debug();
             APRINTK(KERN_DEBUG "armadillo: Turning debug off.");
             if (ret == 0) {
                 APRINTK(KERN_DEBUG "armadillo: Turned debug on.");

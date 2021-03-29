@@ -39,7 +39,8 @@ int armadillo_printk_nolock(const char *fmt, ...);
 bool armadillo_is_debug(void);
 bool armadillo_is_locked(void);
 
-int toggle_pid_unkillable(unsigned int pid,  unsigned char new_status);
+int armadillo_set_pid_unkillable(unsigned int pid,  unsigned char new_status);
+
 int armadillo_lock(char * secret);
 int armadillo_unlock(char * secret);
 
