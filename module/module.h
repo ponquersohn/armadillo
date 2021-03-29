@@ -15,7 +15,6 @@ MODULE_AUTHOR("Lech Lachowicz");
 #define MODULE_NAME "armadillo"
 #define PKPRE "[" MODULE_NAME "] "
 
-extern struct mutex armadillo_status_mutex;
 
 #define ARMADILLO_MAX_PASS_LENGTH 40
 typedef struct  {
@@ -25,6 +24,10 @@ typedef struct  {
 } armadillo_status_type;
 
 extern armadillo_status_type armadillo_status;
+extern struct mutex armadillo_status_mutex;
+#define ARMADILLO_LOCK_STATUS_MUTEX mutex_lock(&armadillo_status_mutex)
+#define ARMADILLO_UNLOCK_STATUS_MUTEX mutex_unlock(&armadillo_status_mutex)
+
 
 int armadillo_printk(const char *fmt, ...);
 bool armadillo_is_debug(void);

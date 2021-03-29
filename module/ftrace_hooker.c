@@ -17,6 +17,8 @@
 #include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/kprobes.h>
+//#include <linux/sched.h>
+#include <linux/fdtable.h>
 #include "module.h"
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)
@@ -49,6 +51,13 @@ static unsigned long lookup_name(const char *name)
 static __always_inline struct pt_regs *ftrace_get_regs(struct ftrace_regs *fregs)
 {
 	return fregs;
+}
+#endif
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+static inline int within_module(unsigned long addr, const struct module *mod)
+{
+	return within_module_init(addr, mod) || within_module_core(addr, mod);
 }
 #endif
 
@@ -340,14 +349,14 @@ static asmlinkage long (*real_sys_ioctl)(struct pt_regs *regs);
 static asmlinkage long fh_sys_ioctl(struct pt_regs *regs)
 #else
 //@ToDo: check if char * is actually right, becuase it should be * void
-static asmlinkage long (*real_sys_ioctl)(int fd, unsigned long request, char *argp);
-static asmlinkage long fh_sys_ioctl((int fd, unsigned long request, char *argp)
+static asmlinkage long (*real_sys_ioctl)(int fd, unsigned int request, char *argp);
+static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 #endif
 {
 	long ret;
 	#ifdef PTREGS_SYSCALL_STUBS
 	int fd;
-	unsigned long request;
+	unsigned int request;
 	char *argp;
 
 	// according to: https://stackoverflow.com/questions/2535989/what-are-the-calling-conventions-for-unix-linux-system-calls-and-user-space-f
@@ -358,7 +367,49 @@ static asmlinkage long fh_sys_ioctl((int fd, unsigned long request, char *argp)
 
 
 
-	APRINTK(KERN_INFO "armadillo: hooked ioctl() fd: %d, req: %ul\n", fd, request);
+	char *tmp;
+	char *pathname;
+	struct file *file;
+	struct path *path;
+	struct files_struct *files = current->files;
+
+	//spin_lock(&files->file_lock);
+	file = fcheck_files(files, fd);
+	if (!file) {
+	  //  spin_unlock(&files->file_lock);
+	    return -ENOENT;
+	}
+
+	path = &file->f_path;
+	path_get(path);
+	//spin_unlock(&files->file_lock);
+
+	tmp = (char *)__get_free_page(GFP_KERNEL);
+
+	if (!tmp) {
+	    path_put(path);
+	    return -ENOMEM;
+	}
+
+	pathname = d_path(path, tmp, PAGE_SIZE);
+	path_put(path);
+
+	if (IS_ERR(pathname)) {
+	    free_page((unsigned long)tmp);
+	    return PTR_ERR(pathname);
+	}
+
+	/* do something here with pathname */
+
+	APRINTK(KERN_INFO "armadillo: hooked ioctl() fd: %d, req: %ul path: %s\n", fd, request, pathname);
+
+	free_page((unsigned long)tmp);
+
+	if (request == FS_IOC_SETFLAGS) {
+		APRINTK(KERN_INFO "armadillo: chattr blocked for %s\n", pathname);
+		return -EPERM;
+	}
+
 
 	#ifdef PTREGS_SYSCALL_STUBS
 	ret = real_sys_ioctl(regs);

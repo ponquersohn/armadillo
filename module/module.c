@@ -21,6 +21,8 @@
 #endif
 
 #define INIT_WITH_DEBUG 1
+#define INSTALL_HOOKS_ON_INIT 1
+
 
 armadillo_status_type armadillo_status;
 struct mutex armadillo_status_mutex;
@@ -37,12 +39,7 @@ static struct file_operations fops = {
     .unlocked_ioctl = armadillo_unlocked_ioctl
 };
 
-bool armadillo_is_debug(void) {
-    return true;
-}
-
-
-int armadillo_printk(const char *fmt, ...) {
+int armadillo_printk_nolock(const char *fmt, ...) {
     if (armadillo_status.debug) {
         va_list args;
         int r;
@@ -54,6 +51,37 @@ int armadillo_printk(const char *fmt, ...) {
         return r;
     }
     return 0;
+}
+
+int armadillo_printk(const char *fmt, ...) {
+    va_list args;
+    int r;
+    va_start(args, fmt);
+    ARMADILLO_LOCK_STATUS_MUTEX;    
+    r = armadillo_printk_nolock(fmt, args);
+    ARMADILLO_UNLOCK_STATUS_MUTEX;    
+    va_end(args);
+
+    return r;
+}
+
+int armadillo_set_debug(bool debug) {
+    ARMADILLO_LOCK_STATUS_MUTEX;    
+    armadillo_status.debug = debug;
+    ARMADILLO_UNLOCK_STATUS_MUTEX; 
+    return 0;   
+}
+
+bool armadillo_get_debug(void) {
+    bool ret;
+    ARMADILLO_LOCK_STATUS_MUTEX;    
+    ret = armadillo_status.debug;
+    ARMADILLO_UNLOCK_STATUS_MUTEX;
+    return ret;
+}
+
+int armadillo_lock(char * password) {
+    
 }
 
 int init_module(void) {
@@ -112,7 +140,9 @@ int init_module(void) {
 }
 
 void cleanup_module(void) {
-    //fh_remove_hooks_all();
+    #ifdef INSTALL_HOOKS_ON_INIT
+    fh_remove_hooks_all();
+    #endif
     cdev_del(&armadillo_cdev);
     device_destroy(armadillo_class, armadillo_dev);
     class_destroy(armadillo_class);
