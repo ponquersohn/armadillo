@@ -1,13 +1,11 @@
 CC := gcc
 CLAGS := 
 INTERFACE_NAME := interface
+INTERFACE_NAME_STATIC := $(INTERFACE_NAME).static
 
 # EXTRA_CFLAGS += -I$(src)
 
-.PHONY: clean all 
-.DEFAULT_GOAL := $(INTERFACE_NAME)
 
-UNAME := $(shell uname -r)
 PWD := $(shell pwd)
 
 SOURCES=$(wildcard *.c)
@@ -18,9 +16,17 @@ $(OBJECTS): $(SOURCES)
 
 $(INTERFACE_NAME): $(INTERFACE_NAME).o
 	$(CC) $(CFLAGS) -o $(INTERFACE_NAME) $(INTERFACE_NAME).o
-    
-all: clean $(INTERFACE_NAME)
+
+$(INTERFACE_NAME_STATIC): $(INTERFACE_NAME).o
+	$(CC) $(CFLAGS) --static -o $(INTERFACE_NAME_STATIC) $(INTERFACE_NAME).o
+
+all: clean $(INTERFACE_NAME) $(INTERFACE_NAME_STATIC)
 
 clean:
 	rm -f $(OBJECTS)
+	rm -f $(INTERFACE_NAME_STATIC) $(INTERFACE_NAME)
 
+.PHONY: clean all 
+.DEFAULT_GOAL := all
+
+UNAME := $(shell uname -r)

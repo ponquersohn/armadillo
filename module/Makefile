@@ -1,5 +1,7 @@
 MODULE_NAME := armadillo
 
+KBUILD_CFLAGS_MODULE += -Werror
+
 ifeq ($(KERNELRELEASE),)
 # 'Out-of-kernel' part
 
