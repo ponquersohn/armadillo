@@ -6,14 +6,15 @@
 #include <string.h>
 #include <linux/fs.h> 
 
-#include "../module/command_ioctl.h"
+#include "module/defines.h"
+#include "module/command_ioctl.h"
 
 #define COMMAND_SET_UNKILLABLE "set_unkillable"
 #define COMMAND_LOCK "lock"
 #define COMMAND_UNLOCK "unlock"
 #define COMMAND_SET_DEBUG "set_debug"
 
-char convert_on_off(char * word) {
+unsigned char convert_on_off(char * word) {
     int mytrue = strncmp(word, "on", strlen("on"));
     int myfalse = strncmp(word, "off", strlen("off"));
     if ((mytrue != 0) && ( myfalse != 0)) {
@@ -81,8 +82,8 @@ int main(int argc, char *argv[]) {
             return -1;
         }
 
-        struct armadillo_ioctl_lock armadillo_ioctl_lock_params;
-        strncpy(armadillo_ioctl_lock_params.secret, argv[2], ARMADILLO_MAX_PASSWORD_LENGTH);
+        armadillo_ioctl_lock armadillo_ioctl_lock_params;
+        strncpy(armadillo_ioctl_lock_params.secret, argv[2], ARMADILLO_MAX_PASS_LENGTH);
 
         int ret_val;
 
@@ -99,8 +100,8 @@ int main(int argc, char *argv[]) {
             return -1;
         }
 
-        struct armadillo_ioctl_lock armadillo_ioctl_unlock_params;
-        strncpy(armadillo_ioctl_unlock_params.secret, argv[2], ARMADILLO_MAX_PASSWORD_LENGTH);
+        armadillo_ioctl_lock armadillo_ioctl_unlock_params;
+        strncpy(armadillo_ioctl_unlock_params.secret, argv[2], ARMADILLO_MAX_PASS_LENGTH);
 
         int ret_val;
 

@@ -9,18 +9,18 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 
+#include "defines.h"
+
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Lech Lachowicz");
 
-#define MODULE_NAME "armadillo"
-#define PKPRE "[" MODULE_NAME "] "
 
 
-#define ARMADILLO_MAX_PASS_LENGTH 41
+
 typedef struct  {
     bool locked;
     bool debug; 
-    bool obfuscated_password[ARMADILLO_MAX_PASS_LENGTH];
+    unsigned char obfuscated_password[ARMADILLO_MAX_PASS_LENGTH_TERMINATED];
 } armadillo_status_type;
 
 extern armadillo_status_type armadillo_status;
@@ -30,13 +30,16 @@ extern struct mutex armadillo_status_mutex;
 #define ARMADILLO_UNLOCK_STATUS_MUTEX mutex_unlock(&armadillo_status_mutex)
 
 
-int armadillo_printk(const char *fmt, ...);
-int armadillo_printk_nolock(const char *fmt, ...);
+asmlinkage __visible int armadillo_printk(const char *fmt, ...);
+asmlinkage __visible int armadillo_printk_nolock(const char *fmt, ...);
+
 #define APRINTK armadillo_printk
 #define APRINTK_NOLOCK armadillo_printk_nolock
 
 
-bool armadillo_is_debug(void);
+bool armadillo_get_debug(void); 
+int armadillo_set_debug(bool debug);
+
 bool armadillo_is_locked(void);
 
 int armadillo_set_pid_unkillable(unsigned int pid,  unsigned char new_status);

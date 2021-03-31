@@ -1,21 +1,13 @@
-module:
-	cd module && $(MAKE)
-	cp -f module/armadillo.ko .
+SRC=src
 
-userspace:
-	cd userspace && $(MAKE)
-	cp -f userspace/interface .
-	chmod +x interface
+.PHONY: all
+all:
+	cd $(SRC) && $(MAKE) all
 
-clean_module:
-	cd module && $(MAKE) clean
+.PHONY: clean
+clean:
+	cd $(SRC) && $(MAKE) clean
 
-clean_userspace: 
-	cd userspace && $(MAKE) clean
-
-all: module userspace
-
-clean: clean_module clean_userspace
-	rm -f interface armadillo.ko
-
-.PHONY: clean all module userspace clean_module clean_userspace
+.PHONY: test
+test:
+	cd $(SRC) && $(MAKE) test

@@ -1,6 +1,5 @@
 #include "obfuscate.h"
 
-
 char * obfuscate(char * plane, char * obfuscated, int size) {
     return strncpy(obfuscated, plane, size);
 }

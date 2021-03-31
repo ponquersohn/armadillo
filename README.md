@@ -58,6 +58,8 @@ Centos8 # ./userspace/interface unlock password
 Centos8 # rmmod armadillo.ko 
 ```
 
+## Making a process unkillable
+
 
 root@kali:~/ls2020/homebrew_tools/armadillo#
 root@kali:~/ls2020/homebrew_tools/armadillo# ls

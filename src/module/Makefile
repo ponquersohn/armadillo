@@ -1,6 +1,10 @@
 MODULE_NAME := armadillo
+#CFLAGS=-I../
+OBFUSCATION_KEY := $(shell cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 40 | head -n 1)
+MODULE_SRC=../
+EXTRA_CFLAGS += -I$(MODULE_SRC)
 
-KBUILD_CFLAGS_MODULE += -Werror
+KBUILD_CFLAGS_MODULE += -Werror -DOBFUSCATION_KEY
 
 ifeq ($(KERNELRELEASE),)
 # 'Out-of-kernel' part
@@ -18,10 +22,11 @@ PWD := $(shell pwd)
 all: $(MODULE_NAME).ko
 
 $(MODULE_NAME).ko: $(MODULE_SOURCES)
-	$(MAKE) -C $(KBUILD_DIR) M=$(PWD) modules
+	$(MAKE) -C $(KBUILD_DIR) M=$(PWD) $(EXTRA_CFLAGS)  modules
 
 clean:
-	$(MAKE) -C $(KBUILD_DIR) M=$(PWD) clean
+	$(MAKE) -C $(KBUILD_DIR) M=$(PWD) $(EXTRA_CFLAGS) clean
+	
 else
 # KBuild part. 
 # It is used by the kernel build system to actually build the module.
@@ -35,3 +40,5 @@ $(MODULE_NAME)-y := \
 	command_ioctl.o 
 
 endif
+
+.PHONY: clean

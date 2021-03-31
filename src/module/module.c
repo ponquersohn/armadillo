@@ -11,6 +11,7 @@
 #include <linux/fs.h>
 
 #include "module.h" 
+#include "defines.h" 
 #include "command_ioctl.h"
 #include "ftrace_hooker.h"
 
@@ -20,8 +21,7 @@
 #include <linux/sched.h>
 #endif
 
-#define INIT_WITH_DEBUG 1
-#define INSTALL_HOOKS_ON_INIT 1
+
 
 
 armadillo_status_type armadillo_status;
@@ -37,32 +37,27 @@ static struct file_operations fops = {
     .owner = THIS_MODULE,
     .unlocked_ioctl = armadillo_unlocked_ioctl
 };
-
-int armadillo_printk_nolock(const char *fmt, ...) {
-    if (armadillo_status.debug) {
-        va_list args;
-        int r;
-
-        va_start(args, fmt);
-        r = vprintk(fmt, args);
-        va_end(args);
-
-        return r;
+#define ARMADILLO_PRINTK_NOLOCK_IMPL \
+    if (armadillo_status.debug) { \
+	    va_list args; \
+	    va_start(args, fmt); \
+	    r = vprintk(fmt, args); \
+	    va_end(args); \
     }
-    return 0;
+
+
+asmlinkage __visible int armadillo_printk_nolock(const char *fmt, ...)
+{
+    int r = 0; 
+    ARMADILLO_PRINTK_NOLOCK_IMPL
+    return r;
 }
 
-int armadillo_printk(const char *fmt, ...) {
-    va_list args;
-    int r;
-
-    va_start(args, fmt);
-    ARMADILLO_LOCK_STATUS_MUTEX;        
-    r = armadillo_printk_nolock(fmt, args);
-    ARMADILLO_UNLOCK_STATUS_MUTEX;    
-
-    va_end(args);
-    
+asmlinkage __visible int armadillo_printk(const char *fmt, ...) {
+    int r = 0; 
+    ARMADILLO_LOCK_STATUS_MUTEX;
+    ARMADILLO_PRINTK_NOLOCK_IMPL        
+    ARMADILLO_UNLOCK_STATUS_MUTEX; 
     return r;
 }
 
@@ -94,7 +89,6 @@ bool armadillo_get_debug(void) {
 
 int armadillo_lock(char * secret) {
     int ret = 0;
-    APRINTK_NOLOCK(KERN_ALERT "armadillo: secret: %s...\n", secret);
     ARMADILLO_LOCK_STATUS_MUTEX;
     if (!armadillo_status.locked) {
         APRINTK_NOLOCK(KERN_ALERT "armadillo: Locking...\n");
@@ -106,7 +100,7 @@ int armadillo_lock(char * secret) {
         ret = 0;
     } else {
         APRINTK_NOLOCK(KERN_ALERT "armadillo: Unable to lock as already locked.\n");
-        ret = -1;
+        ret = -EFAULT;;
     }
     ARMADILLO_UNLOCK_STATUS_MUTEX;
     return ret;
@@ -122,9 +116,12 @@ int armadillo_unlock(char * secret) {
         ret = 0;
     } else {
         APRINTK_NOLOCK(KERN_ALERT "armadillo: Unable to unlock as already unlocked.\n");
-        ret = -1;
+        ret = -EFAULT;;
     }
-    mutex_unlock(&armadillo_status_mutex);
+    ARMADILLO_UNLOCK_STATUS_MUTEX;
+
+
+    
     return ret;
 }
 
