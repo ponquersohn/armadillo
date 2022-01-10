@@ -15,6 +15,9 @@ clean_userspace:
 
 all: module userspace
 
+test: all
+	cd ../test && $(MAKE)
+
 clean: clean_module clean_userspace
 	rm -f interface armadillo.ko
 
