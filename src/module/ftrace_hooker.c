@@ -21,16 +21,16 @@
 #include <linux/fdtable.h>
 #include "module.h"
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5,7,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
 static unsigned long lookup_name(const char *name)
 {
 	struct kprobe kp = {
-		.symbol_name = name
-	};
+		.symbol_name = name};
 	unsigned long retval;
 
-	if (register_kprobe(&kp) < 0) return 0;
-	retval = (unsigned long) kp.addr;
+	if (register_kprobe(&kp) < 0)
+		return 0;
+	retval = (unsigned long)kp.addr;
 	unregister_kprobe(&kp);
 	return retval;
 }
@@ -41,11 +41,13 @@ static unsigned long lookup_name(const char *name)
 }
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
 #define FTRACE_OPS_FL_RECURSION FTRACE_OPS_FL_RECURSION_SAFE
+
+#define files_lookup_fd_rcu fcheck_files
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
 #define ftrace_regs pt_regs
 
 static __always_inline struct pt_regs *ftrace_get_regs(struct ftrace_regs *fregs)
@@ -54,7 +56,7 @@ static __always_inline struct pt_regs *ftrace_get_regs(struct ftrace_regs *fregs
 }
 #endif
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(4,1,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 1, 0)
 static inline int within_module(unsigned long addr, const struct module *mod)
 {
 	return within_module_init(addr, mod) || within_module_core(addr, mod);
@@ -85,7 +87,8 @@ static inline int within_module(unsigned long addr, const struct module *mod)
  * The user should fill in only &name, &hook, &orig fields.
  * Other fields are considered implementation details.
  */
-struct ftrace_hook {
+struct ftrace_hook
+{
 	const char *name;
 	void *function;
 	void *original;
@@ -98,22 +101,23 @@ static int fh_resolve_hook_address(struct ftrace_hook *hook)
 {
 	hook->address = lookup_name(hook->name);
 
-	if (!hook->address) {
+	if (!hook->address)
+	{
 		APRINTK(KERN_DEBUG "unresolved symbol: %s\n", hook->name);
 		return -ENOENT;
 	}
 
 #if USE_FENTRY_OFFSET
-	*((unsigned long*) hook->original) = hook->address + MCOUNT_INSN_SIZE;
+	*((unsigned long *)hook->original) = hook->address + MCOUNT_INSN_SIZE;
 #else
-	*((unsigned long*) hook->original) = hook->address;
+	*((unsigned long *)hook->original) = hook->address;
 #endif
 
 	return 0;
 }
 
 static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip,
-		struct ftrace_ops *ops, struct ftrace_regs *fregs)
+									struct ftrace_ops *ops, struct ftrace_regs *fregs)
 {
 	struct pt_regs *regs = ftrace_get_regs(fregs);
 	struct ftrace_hook *hook = container_of(ops, struct ftrace_hook, ops);
@@ -147,18 +151,18 @@ int fh_install_hook(struct ftrace_hook *hook)
 	 * We'll perform our own checks for trace function reentry.
 	 */
 	hook->ops.func = fh_ftrace_thunk;
-	hook->ops.flags = FTRACE_OPS_FL_SAVE_REGS
-	                | FTRACE_OPS_FL_RECURSION
-	                | FTRACE_OPS_FL_IPMODIFY;
+	hook->ops.flags = FTRACE_OPS_FL_SAVE_REGS | FTRACE_OPS_FL_RECURSION | FTRACE_OPS_FL_IPMODIFY;
 
 	err = ftrace_set_filter_ip(&hook->ops, hook->address, 0, 0);
-	if (err) {
+	if (err)
+	{
 		APRINTK(KERN_DEBUG "ftrace_set_filter_ip() failed: %d\n", err);
 		return err;
 	}
 
 	err = register_ftrace_function(&hook->ops);
-	if (err) {
+	if (err)
+	{
 		APRINTK(KERN_DEBUG "register_ftrace_function() failed: %d\n", err);
 		ftrace_set_filter_ip(&hook->ops, hook->address, 1, 0);
 		return err;
@@ -176,12 +180,14 @@ void fh_remove_hook(struct ftrace_hook *hook)
 	int err;
 
 	err = unregister_ftrace_function(&hook->ops);
-	if (err) {
+	if (err)
+	{
 		APRINTK(KERN_DEBUG "unregister_ftrace_function() failed: %d\n", err);
 	}
 
 	err = ftrace_set_filter_ip(&hook->ops, hook->address, 1, 0);
-	if (err) {
+	if (err)
+	{
 		APRINTK(KERN_DEBUG "ftrace_set_filter_ip() failed: %d\n", err);
 	}
 }
@@ -200,7 +206,8 @@ int fh_install_hooks(struct ftrace_hook *hooks, size_t count)
 	int err;
 	size_t i;
 
-	for (i = 0; i < count; i++) {
+	for (i = 0; i < count; i++)
+	{
 		err = fh_install_hook(&hooks[i]);
 		if (err)
 			goto error;
@@ -209,7 +216,8 @@ int fh_install_hooks(struct ftrace_hook *hooks, size_t count)
 	return 0;
 
 error:
-	while (i != 0) {
+	while (i != 0)
+	{
 		fh_remove_hook(&hooks[--i]);
 	}
 
@@ -233,7 +241,7 @@ void fh_remove_hooks(struct ftrace_hook *hooks, size_t count)
 #error Currently only x86_64 architecture is supported
 #endif
 
-#if defined(CONFIG_X86_64) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4,17,0))
+#if defined(CONFIG_X86_64) && (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 17, 0))
 #define PTREGS_SYSCALL_STUBS 1
 #endif
 
@@ -246,9 +254,9 @@ void fh_remove_hooks(struct ftrace_hook *hooks, size_t count)
 #endif
 
 //#ifdef PTREGS_SYSCALL_STUBS
-//static asmlinkage long (*real_sys_clone)(struct pt_regs *regs);
+// static asmlinkage long (*real_sys_clone)(struct pt_regs *regs);
 //
-//static asmlinkage long fh_sys_clone(struct pt_regs *regs)
+// static asmlinkage long fh_sys_clone(struct pt_regs *regs)
 //{
 //	long ret;
 //
@@ -261,11 +269,11 @@ void fh_remove_hooks(struct ftrace_hook *hooks, size_t count)
 //	return ret;
 //}
 //#else
-//static asmlinkage long (*real_sys_clone)(unsigned long clone_flags,
+// static asmlinkage long (*real_sys_clone)(unsigned long clone_flags,
 //		unsigned long newsp, int __user *parent_tidptr,
 //		int __user *child_tidptr, unsigned long tls);
 //
-//static asmlinkage long fh_sys_clone(unsigned long clone_flags,
+// static asmlinkage long fh_sys_clone(unsigned long clone_flags,
 //		unsigned long newsp, int __user *parent_tidptr,
 //		int __user *child_tidptr, unsigned long tls)
 //{
@@ -282,7 +290,7 @@ void fh_remove_hooks(struct ftrace_hook *hooks, size_t count)
 //}
 //#endif
 //
-//static char *duplicate_filename(const char __user *filename)
+// static char *duplicate_filename(const char __user *filename)
 //{
 //	char *kernel_filename;
 //
@@ -299,9 +307,9 @@ void fh_remove_hooks(struct ftrace_hook *hooks, size_t count)
 //}
 //
 //#ifdef PTREGS_SYSCALL_STUBS
-//static asmlinkage long (*real_sys_execve)(struct pt_regs *regs);
+// static asmlinkage long (*real_sys_execve)(struct pt_regs *regs);
 //
-//static asmlinkage long fh_sys_execve(struct pt_regs *regs)
+// static asmlinkage long fh_sys_execve(struct pt_regs *regs)
 //{
 //	long ret;
 //	char *kernel_filename;
@@ -319,11 +327,11 @@ void fh_remove_hooks(struct ftrace_hook *hooks, size_t count)
 //	return ret;
 //}
 //#else
-//static asmlinkage long (*real_sys_execve)(const char __user *filename,
+// static asmlinkage long (*real_sys_execve)(const char __user *filename,
 //		const char __user *const __user *argv,
 //		const char __user *const __user *envp);
 //
-//static asmlinkage long fh_sys_execve(const char __user *filename,
+// static asmlinkage long fh_sys_execve(const char __user *filename,
 //		const char __user *const __user *argv,
 //		const char __user *const __user *envp)
 //{
@@ -353,7 +361,7 @@ static asmlinkage long (*real_sys_ioctl)(int fd, unsigned int request, char *arg
 static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 #endif
 {
-	
+
 	long ret;
 	char *tmp;
 	char *pathname;
@@ -361,8 +369,7 @@ static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 	struct path *path;
 	struct files_struct *files = current->files;
 
-
-	#ifdef PTREGS_SYSCALL_STUBS
+#ifdef PTREGS_SYSCALL_STUBS
 	// this is needed to cover the differences in definition between kernels
 
 	int fd;
@@ -373,58 +380,58 @@ static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 	fd = regs->di;
 	request = regs->si;
 	argp = (char *)regs->dx;
-	#endif
+#endif
 
-	//spin_lock(&files->file_lock);
-	file = fcheck_files(files, fd);
-	if (!file) {
-	  //  spin_unlock(&files->file_lock);
-	    return -ENOENT;
+	// spin_lock(&files->file_lock);
+	file = files_lookup_fd_rcu(files, fd);
+	if (!file)
+	{
+		//  spin_unlock(&files->file_lock);
+		return -ENOENT;
 	}
 
 	path = &file->f_path;
 	path_get(path);
-	//spin_unlock(&files->file_lock);
+	// spin_unlock(&files->file_lock);
 
 	tmp = (char *)__get_free_page(GFP_KERNEL);
 
-	if (!tmp) {
-	    path_put(path);
-	    return -ENOMEM;
+	if (!tmp)
+	{
+		path_put(path);
+		return -ENOMEM;
 	}
 
 	pathname = d_path(path, tmp, PAGE_SIZE);
 	path_put(path);
 
-	if (IS_ERR(pathname)) {
-	    free_page((unsigned long)tmp);
-	    return PTR_ERR(pathname);
+	if (IS_ERR(pathname))
+	{
+		free_page((unsigned long)tmp);
+		return PTR_ERR(pathname);
 	}
 
 	/* do something here with pathname */
 
-	//APRINTK(KERN_INFO "armadillo: hooked ioctl() fd: %d, req: %ul path: %s\n", fd, request, pathname);
+	// APRINTK(KERN_INFO "armadillo: hooked ioctl() fd: %d, req: %ul path: %s\n", fd, request, pathname);
 
 	free_page((unsigned long)tmp);
 
-	if ((request == FS_IOC_SETFLAGS)&&  armadillo_is_locked()) {
+	if ((request == FS_IOC_SETFLAGS) && armadillo_is_locked())
+	{
 		APRINTK(KERN_INFO "armadillo: chattr blocked for %s\n", pathname);
 		return -EPERM;
 	}
 
-
-	#ifdef PTREGS_SYSCALL_STUBS
+#ifdef PTREGS_SYSCALL_STUBS
 	ret = real_sys_ioctl(regs);
-	#else
+#else
 	ret = real_sys_ioctl(fd, request, argp);
-	#endif
-	//APRINTK(KERN_INFO "armadillo: original ioctl() ret: %ld\n", ret);
+#endif
+	// APRINTK(KERN_INFO "armadillo: original ioctl() ret: %ld\n", ret);
 
 	return ret;
 }
-
-
-
 
 /*
  * x86_64 kernels have a special naming convention for syscall entry points in newer kernels.
@@ -436,23 +443,25 @@ static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 #define SYSCALL_NAME(name) (name)
 #endif
 
-#define HOOK(_name, _function, _original)	\
-	{					\
-		.name = SYSCALL_NAME(_name),	\
-		.function = (_function),	\
-		.original = (_original),	\
+#define HOOK(_name, _function, _original) \
+	{                                     \
+		.name = SYSCALL_NAME(_name),      \
+		.function = (_function),          \
+		.original = (_original),          \
 	}
 
 static struct ftrace_hook armadillo_hooks[] = {
-	//HOOK("sys_clone",  fh_sys_clone,  &real_sys_clone),
-	//HOOK("sys_execve", fh_sys_execve, &real_sys_execve),
+	// HOOK("sys_clone",  fh_sys_clone,  &real_sys_clone),
+	// HOOK("sys_execve", fh_sys_execve, &real_sys_execve),
 	HOOK("sys_ioctl", fh_sys_ioctl, &real_sys_ioctl),
 };
 
-int fh_install_hooks_all(void) {
-    return fh_install_hooks(armadillo_hooks, ARRAY_SIZE(armadillo_hooks));
+int fh_install_hooks_all(void)
+{
+	return fh_install_hooks(armadillo_hooks, ARRAY_SIZE(armadillo_hooks));
 }
 
-void fh_remove_hooks_all(void) {
-    fh_remove_hooks(armadillo_hooks, ARRAY_SIZE(armadillo_hooks));
+void fh_remove_hooks_all(void)
+{
+	fh_remove_hooks(armadillo_hooks, ARRAY_SIZE(armadillo_hooks));
 }

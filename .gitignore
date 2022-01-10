@@ -4,8 +4,15 @@ armadillo.o
 *.ko.cmd
 *.o.cmd
 *.o.cmd
-
+*.mod
+*.mod.c
+*.mod.o
+*.mod.cmd
+*.o
+*.symvers.cmd
+*.order.cmd
+modules.order
 .vscode/
-
+Module.symvers
 build_dir/
 dist/
