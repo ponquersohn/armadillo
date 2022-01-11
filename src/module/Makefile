@@ -1,6 +1,9 @@
 MODULE_NAME := armadillo
 #CFLAGS=-I../
-OBFUSCATION_KEY := $(shell cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 40 | head -n 1)
+# OBFUSCATION_KEY := $(shell cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 40 | head -n 1)
+
+OBFUSCATION_KEY := $(shell python -c 'import os;print(", ".join([ "0x%02x" % b for b in os.urandom(32)]))')
+$(info $(OBFUSCATION_KEY))
 MODULE_SRC=../
 EXTRA_CFLAGS += -I$(MODULE_SRC)
 

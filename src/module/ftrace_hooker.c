@@ -290,67 +290,68 @@ void fh_remove_hooks(struct ftrace_hook *hooks, size_t count)
 //}
 //#endif
 //
-// static char *duplicate_filename(const char __user *filename)
-//{
-//	char *kernel_filename;
+static char *duplicate_filename(const char __user *filename)
+{
+	char *kernel_filename;
+
+	kernel_filename = kmalloc(4096, GFP_KERNEL);
+	if (!kernel_filename)
+		return NULL;
+
+	if (strncpy_from_user(kernel_filename, filename, 4096) < 0)
+	{
+		kfree(kernel_filename);
+		return NULL;
+	}
+
+	return kernel_filename;
+}
 //
-//	kernel_filename = kmalloc(4096, GFP_KERNEL);
-//	if (!kernel_filename)
-//		return NULL;
-//
-//	if (strncpy_from_user(kernel_filename, filename, 4096) < 0) {
-//		kfree(kernel_filename);
-//		return NULL;
-//	}
-//
-//	return kernel_filename;
-//}
-//
-//#ifdef PTREGS_SYSCALL_STUBS
-// static asmlinkage long (*real_sys_execve)(struct pt_regs *regs);
-//
-// static asmlinkage long fh_sys_execve(struct pt_regs *regs)
-//{
-//	long ret;
-//	char *kernel_filename;
-//
-//	kernel_filename = duplicate_filename((void*) regs->di);
-//
-//	APRINTK(KERN_INFO "execve() before: %s\n", kernel_filename);
-//
-//	kfree(kernel_filename);
-//
-//	ret = real_sys_execve(regs);
-//
-//	APRINTK(KERN_INFO "execve() after: %ld\n", ret);
-//
-//	return ret;
-//}
-//#else
-// static asmlinkage long (*real_sys_execve)(const char __user *filename,
-//		const char __user *const __user *argv,
-//		const char __user *const __user *envp);
-//
-// static asmlinkage long fh_sys_execve(const char __user *filename,
-//		const char __user *const __user *argv,
-//		const char __user *const __user *envp)
-//{
-//	long ret;
-//	char *kernel_filename;
-//
-//	kernel_filename = duplicate_filename(filename);
-//
-//	APRINTK(KERN_INFO "execve() before: %s\n", kernel_filename);
-//
-//	kfree(kernel_filename);
-//
-//	ret = real_sys_execve(filename, argv, envp);
-//
-//	APRINTK(KERN_INFO "execve() after: %ld\n", ret);
-//
-//	return ret;
-//}
-//#endif
+#ifdef PTREGS_SYSCALL_STUBS
+static asmlinkage long (*real_sys_execve)(struct pt_regs *regs);
+
+static asmlinkage long fh_sys_execve(struct pt_regs *regs)
+{
+	long ret;
+	char *kernel_filename;
+
+	kernel_filename = duplicate_filename((void *)regs->di);
+
+	APRINTK(KERN_INFO "execve() before: %s\n", kernel_filename);
+
+	kfree(kernel_filename);
+
+	ret = real_sys_execve(regs);
+
+	APRINTK(KERN_INFO "execve() after: %ld\n", ret);
+
+	return ret;
+}
+#else
+static asmlinkage long (*real_sys_execve)(const char __user *filename,
+										  const char __user *const __user *argv,
+										  const char __user *const __user *envp);
+
+static asmlinkage long fh_sys_execve(const char __user *filename,
+									 const char __user *const __user *argv,
+									 const char __user *const __user *envp)
+{
+	long ret;
+	char *kernel_filename;
+
+	kernel_filename = duplicate_filename(filename);
+
+	APRINTK(KERN_INFO "execve() before: %s\n", kernel_filename);
+
+	kfree(kernel_filename);
+
+	ret = real_sys_execve(filename, argv, envp);
+
+	APRINTK(KERN_INFO "execve() after: %ld\n", ret);
+
+	return ret;
+}
+#endif
 
 #ifdef PTREGS_SYSCALL_STUBS
 static asmlinkage long (*real_sys_ioctl)(struct pt_regs *regs);
@@ -433,6 +434,40 @@ static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 	return ret;
 }
 
+#ifdef PTREGS_SYSCALL_STUBS
+static asmlinkage long (*real_sys_kill)(struct pt_regs *regs);
+static asmlinkage long fh_sys_kill(struct pt_regs *regs)
+#else
+//@ToDo: check if char * is actually right, becuase it should be * void
+static asmlinkage long (*real_sys_kill)(pid_t pid, int sig);
+static asmlinkage long fh_sys_kill(pid_t pid, int sig)
+#endif
+{
+	long ret;
+
+#ifdef PTREGS_SYSCALL_STUBS
+	// this is needed to cover the differences in definition between kernels
+
+	pid_t pid;
+	int sig;
+
+	// according to: https://stackoverflow.com/questions/2535989/what-are-the-calling-conventions-for-unix-linux-system-calls-and-user-space-f
+	pid = regs->di;
+	sig = regs->si;
+#endif
+
+	APRINTK_NOLOCK(KERN_INFO "armadillo: handling hooked kill syscall.\n");
+
+#ifdef PTREGS_SYSCALL_STUBS
+	ret = real_sys_kill(regs);
+#else
+	ret = real_sys_kill(fd, request, argp);
+#endif
+	APRINTK_NOLOCK(KERN_INFO "armadillo: original kill() ret: %ld\n", ret);
+
+	return ret;
+}
+
 /*
  * x86_64 kernels have a special naming convention for syscall entry points in newer kernels.
  * That's what you end up with if an architecture has 3 (three) ABIs for system calls.
@@ -452,8 +487,9 @@ static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 
 static struct ftrace_hook armadillo_hooks[] = {
 	// HOOK("sys_clone",  fh_sys_clone,  &real_sys_clone),
-	// HOOK("sys_execve", fh_sys_execve, &real_sys_execve),
+	HOOK("sys_execve", fh_sys_execve, &real_sys_execve),
 	HOOK("sys_ioctl", fh_sys_ioctl, &real_sys_ioctl),
+	HOOK("sys_kill", fh_sys_kill, &real_sys_kill),
 };
 
 int fh_install_hooks_all(void)

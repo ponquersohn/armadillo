@@ -11,12 +11,12 @@
 #include <linux/version.h>
 #include <linux/kprobes.h>
 
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(5,11,0)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
 #define FTRACE_OPS_FL_RECURSION FTRACE_OPS_FL_RECURSION_SAFE
 #endif
 
-struct ftrace_hook {
+struct ftrace_hook
+{
 	const char *name;
 	void *function;
 	void *original;
@@ -30,6 +30,5 @@ void fh_remove_hooks_all(void);
 
 int fh_install_hooks(struct ftrace_hook *hooks, size_t count);
 int fh_install_hooks_all(void);
-
 
 #endif

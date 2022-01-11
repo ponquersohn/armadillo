@@ -1,4 +1,5 @@
 use_sudo=sudo
+$use_sudo rmmod armadillo
 
 $use_sudo insmod ../src/armadillo.ko
 RET=$?
