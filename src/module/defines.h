@@ -4,9 +4,8 @@
 #define MODULE_NAME "armadillo"
 #define PKPRE "[" MODULE_NAME "] "
 
-#define ARMADILLO_MAX_PASS_LENGTH 40
+#define ARMADILLO_MAX_PASS_LENGTH 15
 #define ARMADILLO_MAX_PASS_LENGTH_TERMINATED ARMADILLO_MAX_PASS_LENGTH + 1
-
 
 #define INIT_WITH_DEBUG 1
 #define INSTALL_HOOKS_ON_INIT 1
@@ -19,8 +18,4 @@
 
 #define ARMADILLO_LOCKED_MESSAGE "LOCKED... You shall not pass!!!"
 
-
-
-
-#endif   // DEFINES_IOCTL_H
-
+#endif // DEFINES_IOCTL_H

@@ -1,13 +1,15 @@
 # Armadillo - a custom made TPE solution
 Created for the need of LS 2020. This is a custom hardening tool that will be able to deescalate root priviledges and prevent breaking the machine
 
-Version 0.0000001 - one evening of coding:
+Version 0.0000002 - two evenings of coding:
 # Included: 
 - loadable module with userspace interface 
 - feature - protecting a PID from killing - set a selected PID unkillable by SIGKILL and SIGTERM!!!!. Still one can run sigsegv and others but its easy to catch by user appliaction.
 - feature - added the ability to lock and unlock configuration changes with password
 - feature - protecting the module from being unloaded (with --force too) when locked
 - feature - implemented syscall hooking with ftrace
+- feature - password protect locked state with AES in mem encrypton and random key.
+
 - syscall hook - hooked ioctl to control the behavior of chattr
 
 # Install
@@ -108,7 +110,6 @@ And after disabling the protection
 
 # TODO
 ## MUSt have:
-  - password protect locked state - in progress
   - disable remount with rw for root
   - disable rm -rf /
   - add rm protection for specified files

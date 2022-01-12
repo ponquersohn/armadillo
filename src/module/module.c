@@ -9,11 +9,13 @@
 #include <linux/cdev.h>
 #include <linux/kdev_t.h>
 #include <linux/fs.h>
+#include <linux/types.h>
 
 #include "module.h"
 #include "defines.h"
 #include "command_ioctl.h"
 #include "ftrace_hooker.h"
+#include "obfuscate.h"
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
 #include <linux/sched/signal.h>
@@ -91,8 +93,12 @@ int armadillo_lock(char *secret)
     if (!armadillo_status.locked)
     {
         APRINTK_NOLOCK(KERN_ALERT "armadillo: Locking...\n");
-        // used to prevent unloading!!
         armadillo_status.locked = true;
+
+        // lets obfuscate the password in memoy
+        obfuscate(secret, armadillo_status.obfuscated_password);
+
+        // used to prevent unloading!!
         if (!try_module_get(THIS_MODULE))
         {
             APRINTK_NOLOCK(KERN_ALERT "armadillo: Couldnt lock unloading.\n");
@@ -112,13 +118,27 @@ int armadillo_lock(char *secret)
 int armadillo_unlock(char *secret)
 {
     int ret = 0;
+    char deobfuscated_password[ARMADILLO_MAX_PASS_LENGTH_TERMINATED];
+
     ARMADILLO_LOCK_STATUS_MUTEX;
     if (armadillo_status.locked)
     {
         APRINTK_NOLOCK(KERN_ALERT "armadillo: Unlocking...\n");
-        armadillo_status.locked = false;
-        module_put(THIS_MODULE);
-        ret = 0;
+
+        deobfuscate(armadillo_status.obfuscated_password, deobfuscated_password);
+        // APRINTK_NOLOCK(KERN_ALERT "armadillo: unlock secred: %s deobfuscated: %s \n", secret, deobfuscated_password);
+        if (strncmp(secret, deobfuscated_password, ARMADILLO_MAX_PASS_LENGTH_TERMINATED) == 0)
+        {
+            // we can unlock as the passwords match
+            armadillo_status.locked = false;
+            module_put(THIS_MODULE);
+            ret = 0;
+        }
+        else
+        {
+            APRINTK_NOLOCK(KERN_ALERT "armadillo: Unable to unlock - passwords doesnt match.\n");
+            ret = -EFAULT;
+        }
     }
     else
     {
@@ -207,13 +227,17 @@ int init_module(void)
         return ret;
     }
 
-    //    APRINTK (KERN_DEBUG "armadillo: scary part comes, lets hook the kernel!\n");
+    //    APRINTK (KERN_INFO "armadillo: scary part comes, lets hook the kernel!\n");
 
 #ifdef INSTALL_HOOKS_ON_INIT
+    APRINTK(KERN_INFO "armadillo: Installing hooks\n");
     ret = fh_install_hooks_all();
     if (ret)
         //@ToDo: a proper way of deinit... we need to destroy the device first... right??? :)
         return ret;
+    APRINTK(KERN_INFO "armadillo: All hooks installed\n");
+#else
+#pragma message "Nothing going to be started when initializing"
 #endif
 
     APRINTK(KERN_INFO "armadillo: Module initialized\n");
