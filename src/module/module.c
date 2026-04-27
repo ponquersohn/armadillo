@@ -16,6 +16,7 @@
 #include "command_ioctl.h"
 #include "ftrace_hooker.h"
 #include "obfuscate.h"
+#include "policy.h"
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 10, 0)
 #include <linux/sched/signal.h>
@@ -32,8 +33,21 @@ struct class *armadillo_class;
 dev_t armadillo_dev;
 static struct cdev armadillo_cdev;
 
+int armadillo_device_open(struct inode *inode, struct file *filp)
+{
+    return 0;
+}
+
+int armadillo_device_release(struct inode *inode, struct file *filp)
+{
+    armadillo_policy_daemon_detach(filp);
+    return 0;
+}
+
 static struct file_operations fops = {
-    .owner = THIS_MODULE,
+    .owner          = THIS_MODULE,
+    .open           = armadillo_device_open,
+    .release        = armadillo_device_release,
     .unlocked_ioctl = armadillo_unlocked_ioctl};
 #define ARMADILLO_PRINTK_NOLOCK_IMPL \
     if (armadillo_status.debug)      \
@@ -199,12 +213,18 @@ int init_module(void)
 
     APRINTK(KERN_INFO "armadillo: mutex initiated.\n");
 
+    armadillo_policy_init();
+
     if ((ret = alloc_chrdev_region(&armadillo_dev, 0, 1, "Armadillo")) < 0)
     {
         return ret;
     }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 4, 0)
+    if (IS_ERR(armadillo_class = class_create(ARMADILLO_CLASS)))
+#else
     if (IS_ERR(armadillo_class = class_create(THIS_MODULE, ARMADILLO_CLASS)))
+#endif
     {
         unregister_chrdev_region(armadillo_dev, 1);
         return PTR_ERR(armadillo_class);
@@ -250,6 +270,7 @@ void cleanup_module(void)
 #ifdef INSTALL_HOOKS_ON_INIT
     fh_remove_hooks_all();
 #endif
+    armadillo_policy_shutdown();
     cdev_del(&armadillo_cdev);
     device_destroy(armadillo_class, armadillo_dev);
     class_destroy(armadillo_class);

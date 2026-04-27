@@ -7,18 +7,24 @@ userspace:
 	cp -f userspace/interface .
 	chmod +x interface
 
+policyd:
+	cd policyd && $(MAKE)
+
 clean_module:
 	cd module && $(MAKE) clean
 
-clean_userspace: 
+clean_userspace:
 	cd userspace && $(MAKE) clean
 
-all: module userspace
+clean_policyd:
+	cd policyd && $(MAKE) clean
+
+all: module userspace policyd
 
 test: all
 	cd ../test && $(MAKE)
 
-clean: clean_module clean_userspace
+clean: clean_module clean_userspace clean_policyd
 	rm -f interface armadillo.ko
 
-.PHONY: clean all module userspace clean_module clean_userspace
+.PHONY: clean all module userspace policyd clean_module clean_userspace clean_policyd

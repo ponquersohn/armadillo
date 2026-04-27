@@ -11,3 +11,7 @@ clean:
 .PHONY: test
 test:
 	cd $(SRC) && $(MAKE) test
+
+.PHONY: vm
+vm:
+	tools/vm.sh

@@ -19,8 +19,9 @@
 #endif
 
 #include "command_ioctl.h"
+#include "policy.h"
 
-int set_debug(void)
+static int set_debug(void)
 {
     int ret = 0;
 
@@ -127,6 +128,21 @@ long armadillo_unlocked_ioctl(struct file *filp, unsigned int ioctl_num, unsigne
         }
         return ret;
     }
+
+    case ARMADILLO_IOCTL_POLICY_ATTACH:
+        return armadillo_policy_daemon_attach(filp);
+
+    case ARMADILLO_IOCTL_POLICY_PULL:
+        return armadillo_policy_pull((armadillo_verdict_request __user *)ioctl_arg);
+
+    case ARMADILLO_IOCTL_POLICY_REPLY:
+        return armadillo_policy_reply((const armadillo_verdict_reply __user *)ioctl_arg);
+
+    case ARMADILLO_IOCTL_POLICY_SET_CONFIG:
+        return armadillo_policy_set_config((const armadillo_policy_config __user *)ioctl_arg);
+
+    case ARMADILLO_IOCTL_POLICY_GET_CONFIG:
+        return armadillo_policy_get_config((armadillo_policy_config __user *)ioctl_arg);
 
     default:
         APRINTK(KERN_ALERT "armadillo: Unsupported IOCTL!!!\n");

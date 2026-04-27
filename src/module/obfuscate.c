@@ -22,7 +22,7 @@ char *ivdata = NULL;
 unsigned char key[32] = {OBFUSCATION_KEY};
 int use_encryption = 1;
 
-int init_obfuscation(struct skcipher_def *sk)
+static int init_obfuscation(struct skcipher_def *sk)
 {
     APRINTK_NOLOCK("armadillo: initiating obfuscation\n");
     skcipher = crypto_alloc_skcipher("cbc-aes-aesni", 0, 0);

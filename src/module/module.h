@@ -14,6 +14,7 @@
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Lech Lachowicz");
+MODULE_DESCRIPTION("Armadillo - custom TPE/hardening kernel module");
 
 typedef struct
 {

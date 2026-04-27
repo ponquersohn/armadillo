@@ -18,8 +18,11 @@
 #include <linux/version.h>
 #include <linux/kprobes.h>
 //#include <linux/sched.h>
-#include <linux/fdtable.h>
+#include <linux/file.h>
+#include <linux/fcntl.h>
 #include "module.h"
+#include "ftrace_hooker.h"
+#include "policy.h"
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 7, 0)
 static unsigned long lookup_name(const char *name)
@@ -43,8 +46,6 @@ static unsigned long lookup_name(const char *name)
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
 #define FTRACE_OPS_FL_RECURSION FTRACE_OPS_FL_RECURSION_SAFE
-
-#define files_lookup_fd_rcu fcheck_files
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0)
@@ -87,16 +88,6 @@ static inline int within_module(unsigned long addr, const struct module *mod)
  * The user should fill in only &name, &hook, &orig fields.
  * Other fields are considered implementation details.
  */
-struct ftrace_hook
-{
-	const char *name;
-	void *function;
-	void *original;
-
-	unsigned long address;
-	struct ftrace_ops ops;
-};
-
 static int fh_resolve_hook_address(struct ftrace_hook *hook)
 {
 	hook->address = lookup_name(hook->name);
@@ -136,7 +127,7 @@ static void notrace fh_ftrace_thunk(unsigned long ip, unsigned long parent_ip,
  *
  * Returns: zero on success, negative error code otherwise.
  */
-int fh_install_hook(struct ftrace_hook *hook)
+static int fh_install_hook(struct ftrace_hook *hook)
 {
 	int err;
 
@@ -175,7 +166,7 @@ int fh_install_hook(struct ftrace_hook *hook)
  * fh_remove_hooks() - disable and unregister a single hook
  * @hook: a hook to remove
  */
-void fh_remove_hook(struct ftrace_hook *hook)
+static void fh_remove_hook(struct ftrace_hook *hook)
 {
 	int err;
 
@@ -312,20 +303,20 @@ static asmlinkage long (*real_sys_execve)(struct pt_regs *regs);
 
 static asmlinkage long fh_sys_execve(struct pt_regs *regs)
 {
-	long ret;
 	char *kernel_filename;
+	enum armadillo_verdict v;
 
 	kernel_filename = duplicate_filename((void *)regs->di);
+	if (kernel_filename)
+		printk(KERN_INFO "armadillo: exec pid=%d comm=%s path=%s\n",
+			   current->pid, current->comm, kernel_filename);
 
-	APRINTK(KERN_INFO "execve() before: %s\n", kernel_filename);
-
+	v = armadillo_policy_ask_execve(kernel_filename);
 	kfree(kernel_filename);
+	if (v == ARMADILLO_VERDICT_DENY)
+		return -EPERM;
 
-	ret = real_sys_execve(regs);
-
-	APRINTK(KERN_INFO "execve() after: %ld\n", ret);
-
-	return ret;
+	return real_sys_execve(regs);
 }
 #else
 static asmlinkage long (*real_sys_execve)(const char __user *filename,
@@ -336,20 +327,113 @@ static asmlinkage long fh_sys_execve(const char __user *filename,
 									 const char __user *const __user *argv,
 									 const char __user *const __user *envp)
 {
-	long ret;
 	char *kernel_filename;
+	enum armadillo_verdict v;
 
 	kernel_filename = duplicate_filename(filename);
+	if (kernel_filename)
+		printk(KERN_INFO "armadillo: exec pid=%d comm=%s path=%s\n",
+			   current->pid, current->comm, kernel_filename);
 
-	APRINTK(KERN_INFO "execve() before: %s\n", kernel_filename);
+	v = armadillo_policy_ask_execve(kernel_filename);
+	kfree(kernel_filename);
+	if (v == ARMADILLO_VERDICT_DENY)
+		return -EPERM;
 
+	return real_sys_execve(filename, argv, envp);
+}
+#endif
+
+/* Resolve the target binary path for execveat and stash it in `out` (size `outsz`).
+ * Also logs it. Returns true if a usable path was written to `out`.
+ */
+static bool resolve_execveat_path(int dirfd, const char __user *pathname,
+								  int flags, char *out, size_t outsz)
+{
+	char *kernel_filename;
+	bool have_path = false;
+
+	if (outsz)
+		out[0] = '\0';
+
+	kernel_filename = duplicate_filename(pathname);
+	if (kernel_filename && kernel_filename[0]) {
+		printk(KERN_INFO "armadillo: execveat pid=%d comm=%s path=%s\n",
+			   current->pid, current->comm, kernel_filename);
+		if (out && outsz)
+			strscpy(out, kernel_filename, outsz);
+		kfree(kernel_filename);
+		return true;
+	}
 	kfree(kernel_filename);
 
-	ret = real_sys_execve(filename, argv, envp);
+	/* AT_EMPTY_PATH: executable is the fd itself — resolve path from it */
+	if (flags & AT_EMPTY_PATH) {
+		struct file *file;
+		char *tmp;
+		char *resolved;
 
-	APRINTK(KERN_INFO "execve() after: %ld\n", ret);
+		file = fget(dirfd);
+		if (!file)
+			return false;
 
-	return ret;
+		tmp = (char *)__get_free_page(GFP_KERNEL);
+		if (tmp) {
+			resolved = d_path(&file->f_path, tmp, PAGE_SIZE);
+			if (!IS_ERR(resolved)) {
+				printk(KERN_INFO "armadillo: execveat(fd) pid=%d comm=%s path=%s\n",
+					   current->pid, current->comm, resolved);
+				if (out && outsz)
+					strscpy(out, resolved, outsz);
+				have_path = true;
+			}
+			free_page((unsigned long)tmp);
+		}
+		fput(file);
+	}
+	return have_path;
+}
+
+#ifdef PTREGS_SYSCALL_STUBS
+static asmlinkage long (*real_sys_execveat)(struct pt_regs *regs);
+
+static asmlinkage long fh_sys_execveat(struct pt_regs *regs)
+{
+	char path_buf[ARMADILLO_POLICY_PATH_MAX];
+	enum armadillo_verdict v;
+
+	resolve_execveat_path((int)regs->di,
+						  (const char __user *)regs->si,
+						  (int)regs->r8,
+						  path_buf, sizeof(path_buf));
+	v = armadillo_policy_ask_execve(path_buf[0] ? path_buf : NULL);
+	if (v == ARMADILLO_VERDICT_DENY)
+		return -EPERM;
+
+	return real_sys_execveat(regs);
+}
+#else
+static asmlinkage long (*real_sys_execveat)(int dirfd,
+											const char __user *filename,
+											const char __user *const __user *argv,
+											const char __user *const __user *envp,
+											int flags);
+
+static asmlinkage long fh_sys_execveat(int dirfd,
+									   const char __user *filename,
+									   const char __user *const __user *argv,
+									   const char __user *const __user *envp,
+									   int flags)
+{
+	char path_buf[ARMADILLO_POLICY_PATH_MAX];
+	enum armadillo_verdict v;
+
+	resolve_execveat_path(dirfd, filename, flags, path_buf, sizeof(path_buf));
+	v = armadillo_policy_ask_execve(path_buf[0] ? path_buf : NULL);
+	if (v == ARMADILLO_VERDICT_DENY)
+		return -EPERM;
+
+	return real_sys_execveat(dirfd, filename, argv, envp, flags);
 }
 #endif
 
@@ -367,63 +451,54 @@ static asmlinkage long fh_sys_ioctl(int fd, unsigned int request, char *argp)
 	char *tmp;
 	char *pathname;
 	struct file *file;
-	struct path *path;
-	struct files_struct *files = current->files;
+	struct path path;
 
 #ifdef PTREGS_SYSCALL_STUBS
-	// this is needed to cover the differences in definition between kernels
-
 	int fd;
 	unsigned int request;
 	char *argp;
 
-	// according to: https://stackoverflow.com/questions/2535989/what-are-the-calling-conventions-for-unix-linux-system-calls-and-user-space-f
 	fd = regs->di;
 	request = regs->si;
 	argp = (char *)regs->dx;
 #endif
 
-	// spin_lock(&files->file_lock);
-	file = files_lookup_fd_rcu(files, fd);
+	file = fget(fd);
 	if (!file)
-	{
-		//  spin_unlock(&files->file_lock);
-		return -ENOENT;
-	}
+		goto call_real;
 
-	path = &file->f_path;
-	path_get(path);
-	// spin_unlock(&files->file_lock);
+	path = file->f_path;  /* copy struct before fput so we don't hold a pointer into freed file */
+	path_get(&path);
+	fput(file);
 
 	tmp = (char *)__get_free_page(GFP_KERNEL);
-
 	if (!tmp)
 	{
-		path_put(path);
-		return -ENOMEM;
+		path_put(&path);
+		goto call_real;
 	}
 
-	pathname = d_path(path, tmp, PAGE_SIZE);
-	path_put(path);
+	pathname = d_path(&path, tmp, PAGE_SIZE);
+	path_put(&path);
 
 	if (IS_ERR(pathname))
 	{
 		free_page((unsigned long)tmp);
-		return PTR_ERR(pathname);
+		goto call_real;
 	}
 
-	/* do something here with pathname */
-
 	// APRINTK(KERN_INFO "armadillo: hooked ioctl() fd: %d, req: %ul path: %s\n", fd, request, pathname);
-
-	free_page((unsigned long)tmp);
 
 	if ((request == FS_IOC_SETFLAGS) && armadillo_is_locked())
 	{
 		APRINTK(KERN_INFO "armadillo: chattr blocked for %s\n", pathname);
+		free_page((unsigned long)tmp);
 		return -EPERM;
 	}
 
+	free_page((unsigned long)tmp);
+
+call_real:
 #ifdef PTREGS_SYSCALL_STUBS
 	ret = real_sys_ioctl(regs);
 #else
@@ -461,7 +536,7 @@ static asmlinkage long fh_sys_kill(pid_t pid, int sig)
 #ifdef PTREGS_SYSCALL_STUBS
 	ret = real_sys_kill(regs);
 #else
-	ret = real_sys_kill(fd, request, argp);
+	ret = real_sys_kill(pid, sig);
 #endif
 	APRINTK_NOLOCK(KERN_INFO "armadillo: original kill() ret: %ld\n", ret);
 
@@ -486,10 +561,10 @@ static asmlinkage long fh_sys_kill(pid_t pid, int sig)
 	}
 
 static struct ftrace_hook armadillo_hooks[] = {
-	// HOOK("sys_clone",  fh_sys_clone,  &real_sys_clone),
-	HOOK("sys_execve", fh_sys_execve, &real_sys_execve),
-	HOOK("sys_ioctl", fh_sys_ioctl, &real_sys_ioctl),
-	HOOK("sys_kill", fh_sys_kill, &real_sys_kill),
+	HOOK("sys_execve",   fh_sys_execve,   &real_sys_execve),
+	HOOK("sys_execveat", fh_sys_execveat, &real_sys_execveat),
+	HOOK("sys_ioctl",    fh_sys_ioctl,    &real_sys_ioctl),
+	HOOK("sys_kill",     fh_sys_kill,     &real_sys_kill),
 };
 
 int fh_install_hooks_all(void)
